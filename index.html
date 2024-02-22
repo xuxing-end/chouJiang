@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>西安双英科技有限公司</title>
+    <script type="text/javascript" src="js/zepto.js"></script>
+    <script type="text/javascript" src="js/vue.js"></script>
+    <!-- 引入Element UI -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <link rel="stylesheet" href="./css/index.css">
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script type="text/javascript" src="js/tagcanvas.js"></script>
+    <script type="text/javascript" src="js/member.js"></script>
+</head>
+
+<body>
+    <div id="main"></div>
+
+    <div id="app">
+        <div class="utis">
+            <div class="u_item">
+                <div class="reset">
+                    <button @click="resetTip">重置</button>
+                </div>
+                <div class="gu"></div>
+            </div>
+            <div class="u_item">
+                <label class="switch">
+                    <input v-model="peopleState" type="checkbox" class="input__check">
+                    <span class="slider"></span>
+                </label>
+                <div class="gu"></div>
+            </div>
+        </div>
+        <div class="screen" @click="toggleFullScreen">
+            <div class="banter-loader">
+                <div class="banter-loader__box"></div>
+                <div class="banter-loader__box"></div>
+                <div class="banter-loader__box"></div>
+                <div class="banter-loader__box"></div>
+                <div class="banter-loader__box"></div>
+                <div class="banter-loader__box"></div>
+                <div class="banter-loader__box"></div>
+                <div class="banter-loader__box"></div>
+                <div class="banter-loader__box"></div>
+            </div>
+        </div>
+
+        <div class="radio">
+            <div class="tipPeople">中奖人数{{peopleState ? 10 : 1}}</div>
+        </div>
+        <label class="rocker rocker-small" :style="{opacity: employeeList.length == 0 ? '.5' : '1'}">
+            <input v-model="rotateState" :disabled="employeeList.length == 0" type="checkbox">
+            <span class="switch-left">S</span>
+            <span class="switch-right">E</span>
+        </label>
+        <el-dialog title=" " :visible.sync="tipSelectPeopleState" :close-on-press-escape="false"
+            :close-on-click-modal="false">
+            <div class="tip_jiang">
+                <ul class="names">
+                    <li class="name" :class="{'oneName': selectEmployeeList.length == 1}"
+                        v-for="name of selectEmployeeList">{{name}}</li>
+                </ul>
+                <div class="confirm" @click="tipSelectPeopleState = false">确定</div>
+            </div>
+        </el-dialog>
+    </div>
+
+    <script>
+        var speed = function () {
+            return [0.1 * Math.random() + 0.01, -(0.1 * Math.random() + 0.01)];
+        };
+        var createHTML = function (selectList) {
+            var html = ['<ul>'];
+            member.forEach(function (item, index) {
+                item.index = index;
+                var color = selectList.indexOf(item.name) != -1 ? '#ff0' : '#fff';
+                html.push(`<li><a href="javascript:;" style="color: ${color};"> ${item.name} </a></li>`);
+            });
+            html.push('</ul>');
+            return html.join('');
+        };
+        var canvas = document.createElement('canvas');
+        canvas.id = 'myCanvas';
+        canvas.width = window.innerWidth - 15;
+        canvas.height = window.innerHeight - 15;
+        document.getElementById('main').appendChild(canvas);
+        // 创建Vue实例
+        new Vue({
+            el: '#app',
+            data: {
+                employeeList: [],
+                peopleState: false,
+                selectEmployeeList: [],
+                rotateState: false,
+                tipSelectPeopleState: false
+            },
+            watch: {
+                rotateState(state) {
+                    if (state) {
+                        this.startRotate()
+                    } else {
+                        this.endRotate()
+                    }
+                },
+                peopleState(state) {
+                    this.resetData(state)
+                }
+            },
+            mounted() {
+                this.initCanvas();
+                window.addEventListener('resize', this.handleResize);
+                const session_employeeLis = sessionStorage.getItem("session_employeeList")
+                if (session_employeeLis) {
+                    this.employeeList = JSON.parse(session_employeeLis)
+                } else {
+                    this.employeeList = JSON.parse(JSON.stringify(truthMemberList))
+                }
+            },
+            beforeDestroy() {
+                // 在组件销毁前，移除监听器，避免内存泄漏
+                window.removeEventListener('resize', this.handleResize);
+            },
+            methods: {
+                // 抽奖
+                lottery() {
+                    this.selectEmployeeList = []
+                    const peopleNumber = this.peopleState ? 10 : 1
+                    for (let i = 0; i < peopleNumber; i++) {
+                        if (this.employeeList.length === 0) {
+                            break;
+                        }
+                        // 随机选择一个索引
+                        const randomIndex = Math.floor(Math.random() * this.employeeList.length);
+                        // 获取选中的名字
+                        const winner = this.employeeList[randomIndex];
+                        // 从数组中移除选中的名字
+                        this.employeeList.splice(randomIndex, 1);
+                        this.selectEmployeeList.push(winner.name)
+                    }
+
+                    sessionStorage.setItem("session_employeeList", JSON.stringify(this.employeeList))
+                    this.tipSelectPeopleState = true
+                },
+                // 开始抽奖
+                startRotate() {
+                    if (this.employeeList.length === 0) {
+                        this.$notify({
+                            title: '警告',
+                            message: '所有员工都已中奖，抽奖结束！',
+                            type: 'warning'
+                        });
+                        return;
+                    }
+
+                    $('#result').css('display', 'none');
+                    $('#main').removeClass('mask');
+                    TagCanvas.SetSpeed('myCanvas', [5, 1]);
+                },
+                // 停止抽奖
+                endRotate() {
+                    TagCanvas.SetSpeed('myCanvas', speed());
+                    this.lottery()
+                },
+                // 全屏操作方法
+                toggleFullScreen() {
+                    if (!document.fullscreenElement) {
+                        // 当前没有元素处于全屏状态，尝试将当前文档全屏
+                        document.documentElement.requestFullscreen()
+                    } else {
+                        // 当前已经处于全屏状态，退出全屏
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen();
+                        }
+                    }
+                },
+                // 重置提示
+                resetTip() {
+                    this.$confirm('您确定重置数据？', '提示', {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning'
+                    }).then(() => {
+                        this.resetData(this.peopleState)
+                        this.$message({
+                            type: 'success',
+                            message: `重置成功`
+                        });
+                    })
+                },
+                // 重置数据
+                resetData(state) {
+                    if (state) {
+                        this.employeeList = JSON.parse(JSON.stringify(truthMemberList))
+                        sessionStorage.setItem("session_employeeList", JSON.stringify(this.employeeList))
+                    } else {
+                        this.employeeList = JSON.parse(JSON.stringify(truthMemberList))
+                        sessionStorage.setItem("session_employeeList", JSON.stringify(this.employeeList))
+                    }
+                },
+                // 监听窗口大小变化
+                handleResize() {
+                    const canvas = document.getElementById('myCanvas');
+                    canvas.width = window.innerWidth - 15;
+                    canvas.height = window.innerHeight - 15;
+                },
+                // 初始化canvas
+                initCanvas(selectList = []) {
+                    canvas.innerHTML = createHTML(selectList);
+                    TagCanvas.Start('myCanvas', '', {
+                        textColour: null,
+                        initial: speed(),
+                        dragControl: 1,
+                        textHeight: 14
+                    });
+                }
+            }
+        });
+    </script>
+
+</body>
+
+</html>
